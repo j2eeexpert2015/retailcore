@@ -1,0 +1,249 @@
+{
+  "info": {
+    "name": "RetailCore API Smoke Tests",
+    "description": "Run against a running RetailCore instance (H2 or PostgreSQL). Gateway simulates random timeouts; response assertions allow Pending for this intentional training defect.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Health OK\", () => pm.response.to.have.status(200));",
+              "pm.test(\"RetailCore service\", () => pm.expect(pm.response.json().service).to.eql(\"retailcore\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seeded order",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "1"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Seeded order exists\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Order 1\", () => pm.expect(pm.response.json().Id).to.eql(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin page",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/admin/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "orders"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Admin responds\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Orders heading\", () => pm.expect(pm.response.text()).to.include(\"Recent Orders\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"CustomerEmail\": \"postman.test@example.com\",\n  \"ShippingRegion\": \"CA\",\n  \"Lines\": [\n    {\n      \"ProductId\": 1,\n      \"Quantity\": 1\n    }\n  ],\n  \"CardNumber\": \"4242424242424242\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Created\", () => pm.response.to.have.status(201));",
+              "const order = pm.response.json();",
+              "pm.test(\"Order id\", () => pm.expect(order.Id).to.be.a(\"number\"));",
+              "pm.test(\"Valid starter status\", () => pm.expect([\"Confirmed\",\"Pending\"]).to.include(order.Status));",
+              "pm.collectionVariables.set(\"createdOrderId\", String(order.Id));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Retrieve created order",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{createdOrderId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{createdOrderId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Retrieved\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Chained ID\", () => pm.expect(String(pm.response.json().Id)).to.eql(pm.collectionVariables.get(\"createdOrderId\")));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Missing order",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/999999",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "999999"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Not found\", () => pm.response.to.have.status(404));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Declined-card scenario",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"CustomerEmail\": \"decline.postman@example.com\",\n  \"ShippingRegion\": \"CA\",\n  \"Lines\": [\n    {\n      \"ProductId\": 1,\n      \"Quantity\": 1\n    }\n  ],\n  \"CardNumber\": \"4242424242420002\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Created\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Declined or simulated timeout\", () => pm.expect([\"Declined\",\"Pending\"]).to.include(pm.response.json().Status));"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "createdOrderId",
+      "value": ""
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+### Health (start RetailCore first: mvn spring-boot:run)
+GET http://localhost:8080/health
+
+### Existing sample order (default H2 mode includes seed rows)
+GET http://localhost:8080/orders/1
+
+### Admin HTML page
+GET http://localhost:8080/admin/orders
+
+### Create a test order (modifies stock; gateway may simulate timeouts)
+POST http://localhost:8080/orders
+Content-Type: application/json
+
+{
+  "CustomerEmail": "jane@example.com",
+  "ShippingRegion": "CA",
+  "Lines": [{"ProductId": 1, "Quantity": 1}],
+  "CardNumber": "4242424242424242"
+}
+
+### Missing order
+GET http://localhost:8080/orders/999999
